@@ -30,6 +30,9 @@ driver = webdriver.Chrome()
 
 @app.route('/update')
 def update_machine_count():
+
+    print(time.strftime("%A, %d. %B %Y %I:%M:%S %p"))
+
     global free_dryers, free_washers
     free_dryers, free_washers = 0, 0
 
