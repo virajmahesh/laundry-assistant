@@ -66,7 +66,7 @@ def get_free_machine_count():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=update_machine_count, trigger="interval", minutes=2)
+scheduler.add_job(func=lambda: update_machine_count(), trigger="interval", minutes=2)
 scheduler.start()
 
 atexit.register(lambda: scheduler.shutdown())
