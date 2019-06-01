@@ -20,11 +20,15 @@ def get_machine_info(driver, info):
     return parse_list(driver.find_elements_by_css_selector("span[id^={}]".format(info)))
 
 
+free_washers = 0
+free_dryers = 0
 driver = webdriver.Chrome()
 
 
-@app.route('/')
-def hello_world():
+@app.route('/update')
+def update_machine_count():
+    global free_dryers, free_washers
+    free_dryers, free_washers = 0, 0
 
     driver.get('https://www.mywavevision.com')
     driver.find_element_by_id('txtUserID').send_keys('virajmahesh')
@@ -40,7 +44,6 @@ def hello_world():
     machine_types = get_machine_info(driver, MACHINE_TYPE_ID)
     machine_status = get_machine_info(driver, MACHINE_STATUS_ID)
 
-    free_washers, free_dryers = 0, 0
     for i in range(len(machine_ids)):
         if machine_status[i] == 'Available':
             if machine_types[i] == 'Washer':
@@ -48,6 +51,11 @@ def hello_world():
             elif machine_types[i] == 'Dryer':
                 free_dryers += 1
 
+    return get_free_machine_count()
+
+
+@app.route('/')
+def get_free_machine_count():
     return jsonify({'free_washers': free_washers, 'free_dryers': free_dryers})
 
 
