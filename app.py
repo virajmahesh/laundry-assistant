@@ -1,5 +1,6 @@
 from flask import Flask
 from selenium import webdriver
+from flask import jsonify
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -19,9 +20,11 @@ def get_machine_info(driver, info):
     return parse_list(driver.find_elements_by_css_selector("span[id^={}]".format(info)))
 
 
+driver = webdriver.Chrome()
+
+
 @app.route('/')
 def hello_world():
-    driver = webdriver.Chrome()
 
     driver.get('https://www.mywavevision.com')
     driver.find_element_by_id('txtUserID').send_keys('virajmahesh')
@@ -45,7 +48,7 @@ def hello_world():
             elif machine_types[i] == 'Dryer':
                 free_dryers += 1
 
-    return str({'free_washers': free_washers, 'free_dryers': free_dryers})
+    return jsonify({'free_washers': free_washers, 'free_dryers': free_dryers})
 
 
 if __name__ == '__main__':
