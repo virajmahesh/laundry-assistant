@@ -1,8 +1,11 @@
+import time
+import atexit
 from flask import Flask
-from selenium import webdriver
 from flask import jsonify
+from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 
@@ -16,7 +19,7 @@ def parse_list(lst):
     return list(map(lambda x: x.text, lst))
 
 
-def get_machine_info(driver, info):
+def get_machine_info(info):
     return parse_list(driver.find_elements_by_css_selector("span[id^={}]".format(info)))
 
 
@@ -40,9 +43,9 @@ def update_machine_count():
         EC.title_is('Room Status')
     )
 
-    machine_ids = get_machine_info(driver, MACHINE_NAME_ID)
-    machine_types = get_machine_info(driver, MACHINE_TYPE_ID)
-    machine_status = get_machine_info(driver, MACHINE_STATUS_ID)
+    machine_ids = get_machine_info(MACHINE_NAME_ID)
+    machine_types = get_machine_info(MACHINE_TYPE_ID)
+    machine_status = get_machine_info(MACHINE_STATUS_ID)
 
     for i in range(len(machine_ids)):
         if machine_status[i] == 'Available':
@@ -58,6 +61,12 @@ def update_machine_count():
 def get_free_machine_count():
     return jsonify({'free_washers': free_washers, 'free_dryers': free_dryers})
 
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=update_machine_count, trigger="interval", minutes=2)
+scheduler.start()
+
+atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
     app.run()
