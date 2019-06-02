@@ -1,3 +1,4 @@
+import csv
 import time
 import atexit
 from flask import Flask
@@ -27,11 +28,13 @@ free_washers = 0
 free_dryers = 0
 driver = webdriver.Chrome()
 
+log_file = open('log.csv', 'a+')
+field_names = ['time', 'free_washers', 'free_dryers']
+log_file_writer = csv.DictWriter(log_file, fieldnames=field_names)
+
 
 @app.route('/update')
 def update_machine_count():
-
-    print(time.strftime("%A, %d. %B %Y %I:%M:%S %p"))
 
     global free_dryers, free_washers
     free_dryers, free_washers = 0, 0
@@ -57,19 +60,34 @@ def update_machine_count():
             elif machine_types[i] == 'Dryer':
                 free_dryers += 1
 
-    return get_free_machine_count()
+    response = get_response()
+    print(response)
+
+    log_file_writer.writerow(response)
+    return jsonify(response)
+
+
+def get_response():
+    return \
+    {
+        'time': time.strftime("%B %d %Y %I:%M:%S %p"),
+        'free_washers': free_washers,
+        'free_dryers': free_dryers
+    }
 
 
 @app.route('/')
 def get_free_machine_count():
-    return jsonify({'free_washers': free_washers, 'free_dryers': free_dryers})
+    return jsonify(get_response())
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=lambda: update_machine_count(), trigger="interval", minutes=2)
+scheduler.add_job(func=lambda: update_machine_count(), trigger="interval", minutes=5)
 scheduler.start()
 
 atexit.register(lambda: scheduler.shutdown())
+atexit.register(lambda: log_file.close())
+
 
 if __name__ == '__main__':
     app.run()
