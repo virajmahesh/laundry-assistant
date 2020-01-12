@@ -27,6 +27,7 @@ def get_machine_info(info):
 
 free_washers = 0
 free_dryers = 0
+last_updated = '0:0:0'
 
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
@@ -69,7 +70,8 @@ def update_machine_count():
                 free_dryers += 1
 
     response = get_response()
-    print(response)
+    last_updated = time.strftime("%B %d %Y %I:%M:%S %p")
+    #print(response)
 
     log_file_writer.writerow(response)
     return jsonify(response)
@@ -79,6 +81,7 @@ def get_response():
     return \
     {
         'time': time.strftime("%B %d %Y %I:%M:%S %p"),
+        'last_updated': last_updated,
         'free_washers': free_washers,
         'free_dryers': free_dryers
     }
@@ -87,14 +90,6 @@ def get_response():
 @app.route('/')
 def get_free_machine_count():
     return jsonify(get_response())
-
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=lambda: update_machine_count(), trigger="interval", minutes=5)
-scheduler.start()
-
-atexit.register(lambda: scheduler.shutdown())
-atexit.register(lambda: log_file.close())
 
 
 if __name__ == '__main__':
