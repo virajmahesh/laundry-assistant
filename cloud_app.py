@@ -1,15 +1,16 @@
-import csv
 import time
-import atexit
 import chromedriver_binary 
-from flask import Flask
-from flask import jsonify
+from flask import Flask, jsonify
 from selenium import webdriver
+from google.cloud import firestore
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from apscheduler.schedulers.background import BackgroundScheduler
+
 
 app = Flask(__name__)
+db = firestore.Client()
+
+LAUNDRY_ROOM_STATUS_COLLECTION = db.collection(u'laundry_room_statuses')
 
 MACHINE_BASE_ID = 'ContentPlaceHolder1_gvRoom_lbl'
 MACHINE_NAME_ID = MACHINE_BASE_ID + 'MachineID'
@@ -17,37 +18,24 @@ MACHINE_TYPE_ID = MACHINE_BASE_ID + 'MachineTypeName'
 MACHINE_STATUS_ID = MACHINE_BASE_ID + 'Status'
 
 
-def parse_list(lst):
-    return list(map(lambda x: x.text, lst))
-
-
 def get_machine_info(info):
+    def parse_list(lst):
+        return list(map(lambda x: x.text, lst))
+
     return parse_list(driver.find_elements_by_css_selector("span[id^={}]".format(info)))
 
 
-free_washers = 0
-free_dryers = 0
-last_updated = '0:0:0'
-
+# Create the Chrome Webdriver
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("window-size=1024,768")
 chrome_options.add_argument("--no-sandbox")
-
 driver = webdriver.Chrome(chrome_options=chrome_options)
-
-log_file = open('log.csv', 'a+')
-field_names = ['time', 'free_washers', 'free_dryers']
-log_file_writer = csv.DictWriter(log_file, fieldnames=field_names)
 
 
 @app.route('/update')
-def update_machine_count():
-
-    global free_dryers, free_washers
-    free_dryers, free_washers = 0, 0
-
+def update_machine_data():
     driver.get('https://www.mywavevision.com')
     driver.find_element_by_id('txtUserID').send_keys('virajmahesh')
     driver.find_element_by_id('txtPassword').send_keys('luXW&*W6fB#3Q4@f8')
@@ -62,6 +50,8 @@ def update_machine_count():
     machine_types = get_machine_info(MACHINE_TYPE_ID)
     machine_status = get_machine_info(MACHINE_STATUS_ID)
 
+    # Count the number of free washers and dryers
+    free_dryers, free_washers = 0, 0
     for i in range(len(machine_ids)):
         if machine_status[i] == 'Available':
             if machine_types[i] == 'Washer':
@@ -69,27 +59,30 @@ def update_machine_count():
             elif machine_types[i] == 'Dryer':
                 free_dryers += 1
 
-    response = get_response()
-    last_updated = time.strftime("%B %d %Y %I:%M:%S %p")
-    #print(response)
+    # Fetch the latest status from Firestore
+    status_ref = LAUNDRY_ROOM_STATUS_COLLECTION.document('latest')
+    # status = status_ref.get()
 
-    log_file_writer.writerow(response)
-    return jsonify(response)
+    # Create a copy of the object for analysis
+    # LAUNDRY_ROOM_STATUS_COLLECTION.add(status.to_dict())
 
-
-def get_response():
-    return \
-    {
-        'time': time.strftime("%B %d %Y %I:%M:%S %p"),
-        'last_updated': last_updated,
+    # Update the latest status
+    status_ref.set({
         'free_washers': free_washers,
-        'free_dryers': free_dryers
-    }
+        'free_dryers': free_dryers,
+        'last_updated': firestore.SERVER_TIMESTAMP
+    })
+    
+    # Return the latest status
+    status = status_ref.get()
+    return jsonify(status.to_dict())
 
 
 @app.route('/')
-def get_free_machine_count():
-    return jsonify(get_response())
+def get_free_machine_data():
+    status_ref = LAUNDRY_ROOM_STATUS_COLLECTION.document('latest')
+    status = status_ref.get()
+    return jsonify(status.to_dict())
 
 
 if __name__ == '__main__':
