@@ -1,8 +1,9 @@
 import time
-import chromedriver_binary 
+import chromedriver_binary
 from flask import Flask, jsonify
 from selenium import webdriver
 from google.cloud import firestore
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -36,13 +37,18 @@ driver = webdriver.Chrome(chrome_options=chrome_options)
 
 @app.route('/update')
 def update_machine_data():
-    driver.get('https://www.mywavevision.com')
+    driver.get('https://mywavevision.com/')
+
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "txtUserID"))
+    )
+
     driver.find_element_by_id('txtUserID').send_keys('virajmahesh')
     driver.find_element_by_id('txtPassword').send_keys('luXW&*W6fB#3Q4@f8')
 
     driver.find_element_by_id('BtnIndex').click()
 
-    WebDriverWait(driver, 100).until(
+    WebDriverWait(driver, 300).until(
         EC.title_is('Room Status')
     )
 
@@ -72,7 +78,7 @@ def update_machine_data():
         'free_dryers': free_dryers,
         'last_updated': firestore.SERVER_TIMESTAMP
     })
-    
+
     # Return the latest status
     status = status_ref.get()
     return jsonify(status.to_dict())
